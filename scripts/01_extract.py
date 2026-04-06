@@ -13,9 +13,11 @@
 """
 
 import pathlib
+import urllib.request
 
 
 DATA_DIR = pathlib.Path(__file__).parent.parent / 'data'
+BASE_URL = 'https://s3-us-west-1.amazonaws.com/files.airnowtech.org/airnow'
 
 
 def download_data_for_date(date_str):
@@ -28,7 +30,38 @@ def download_data_for_date(date_str):
     Args:
         date_str: Date string in 'YYYY-MM-DD' format. For example, '2024-07-01'.
     """
-    raise NotImplementedError("Implement this function to download AirNow data files.")
+    # Convert '2024-07-01' to '20240701'
+    date_compact = date_str.replace('-', '')
+    year = date_str[:4]
+
+    # Create output folder
+    output_dir = DATA_DIR / 'raw' / date_str
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Download all 24 hourly files
+    for hour in range(24):
+        hour_str = str(hour).zfill(2)
+        filename = f'HourlyData_{date_compact}{hour_str}.dat'
+        url = f'{BASE_URL}/{year}/{date_compact}/{filename}'
+        output_path = output_dir / filename
+
+        if output_path.exists():
+            print(f'  Skipping {filename} (already exists)')
+            continue
+
+        print(f'  Downloading {filename}...')
+        urllib.request.urlretrieve(url, output_path)
+
+    # Download site locations file
+    sites_filename = 'Monitoring_Site_Locations_V2.dat'
+    sites_url = f'{BASE_URL}/{year}/{date_compact}/{sites_filename}'
+    sites_output_path = output_dir / sites_filename
+
+    if sites_output_path.exists():
+        print(f'  Skipping {sites_filename} (already exists)')
+    else:
+        print(f'  Downloading {sites_filename}...')
+        urllib.request.urlretrieve(sites_url, sites_output_path)
 
 
 if __name__ == '__main__':
