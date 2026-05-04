@@ -25,12 +25,19 @@
 """
 
 import pathlib
+from google.cloud import storage
 
 
 DATA_DIR = pathlib.Path(__file__).parent.parent / 'data'
 
-# TODO: Update this to your bucket name
-BUCKET_NAME = 'musa5090-s26-yourname-data'
+BUCKET_NAME = 'musa5090-s26-kavan-data'
+
+# Map file extensions to GCS format subdirectory and destination filename
+FORMAT_MAP = {
+    '.csv':     ('csv',     'data.csv'),
+    '.jsonl':   ('jsonl',   'data.jsonl'),
+    '.parquet': ('parquet', 'data.parquet'),
+}
 
 
 def upload_with_hive_partitioning():
@@ -45,7 +52,31 @@ def upload_with_hive_partitioning():
     The site locations files don't need hive partitioning (they're not
     date-partitioned), so you can re-upload them as-is or skip them.
     """
-    raise NotImplementedError("Implement this function to upload with hive partitioning.")
+    client = storage.Client()
+    bucket = client.bucket(BUCKET_NAME)
+
+    hourly_dir = DATA_DIR / 'prepared' / 'hourly'
+    files = [f for f in hourly_dir.iterdir() if f.is_file()]
+    uploaded = 0
+
+    for file_path in sorted(files):
+        suffix = file_path.suffix
+        if suffix not in FORMAT_MAP:
+            continue
+
+        date_str = file_path.stem  # e.g. '2024-07-01'
+        format_subdir, dest_filename = FORMAT_MAP[suffix]
+
+        blob_name = (
+            f'air_quality/hourly/{format_subdir}'
+            f'/airnow_date={date_str}/{dest_filename}'
+        )
+        blob = bucket.blob(blob_name)
+        print(f'Uploading {file_path.name} -> gs://{BUCKET_NAME}/{blob_name}')
+        blob.upload_from_filename(str(file_path))
+        uploaded += 1
+
+    print(f'Uploaded {uploaded} files with hive partitioning.')
 
 
 if __name__ == '__main__':

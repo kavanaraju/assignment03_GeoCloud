@@ -14,12 +14,12 @@
 """
 
 import pathlib
+from google.cloud import storage
 
 
 DATA_DIR = pathlib.Path(__file__).parent.parent / 'data'
 
-# TODO: Update this to your bucket name
-BUCKET_NAME = 'musa5090-s26-yourname-data'
+BUCKET_NAME = 'musa5090-s26-kavan-data'
 
 
 def upload_prepared_data():
@@ -37,7 +37,20 @@ def upload_prepared_data():
         gs://<bucket>/air_quality/sites/site_locations.jsonl
         gs://<bucket>/air_quality/sites/site_locations.geoparquet
     """
-    raise NotImplementedError("Implement this function to upload files to GCS.")
+    client = storage.Client()
+    bucket = client.bucket(BUCKET_NAME)
+
+    prepared_dir = DATA_DIR / 'prepared'
+    files = [f for f in prepared_dir.rglob('*') if f.is_file()]
+
+    for file_path in files:
+        relative = file_path.relative_to(prepared_dir)
+        blob_name = 'air_quality/' + '/'.join(relative.parts)
+        blob = bucket.blob(blob_name)
+        print(f'Uploading {file_path.name} -> gs://{BUCKET_NAME}/{blob_name}')
+        blob.upload_from_filename(str(file_path))
+
+    print(f'Uploaded {len(files)} files.')
 
 
 if __name__ == '__main__':
